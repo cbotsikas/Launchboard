@@ -122,6 +122,12 @@
       border-radius: 18px;
     }
 
+    .section-card.is-drop-target,
+    .link-card.is-drop-target {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    }
+
     .section-header {
       display: flex;
       justify-content: space-between;
@@ -174,6 +180,7 @@
       background: var(--text);
       border-color: var(--text);
       color: #fff;
+      order: 99;
     }
 
     .ghost-button.is-active {
@@ -198,6 +205,26 @@
       place-items: center;
     }
 
+    .panel-head:hover .panel-actions .ghost-button,
+    .panel-head:focus-within .panel-actions .ghost-button {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .panel-actions .ghost-button {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 0.16s ease, transform 0.16s ease;
+    }
+
+    .panel-actions .ghost-button.is-active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
     .link-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
@@ -212,6 +239,11 @@
       border-radius: 16px;
       background: var(--panel-strong);
       border: 1px solid var(--border);
+    }
+
+    .link-card[draggable="true"],
+    .section-card[draggable="true"] {
+      cursor: grab;
     }
 
     .favicon-wrap {
@@ -314,6 +346,10 @@
       border-radius: 16px;
       border: 1px solid var(--border);
       background: var(--panel-strong);
+    }
+
+    .todo-item.completed {
+      opacity: 0.78;
     }
 
     .todo-item.completed .todo-title {
@@ -449,9 +485,9 @@
         <div class="panel-head">
           <h2>Links</h2>
           <div class="panel-actions">
+            <button id="toggleLinksEditButton" class="ghost-button" type="button">Edit</button>
             <button id="addSectionButton" class="ghost-button" type="button">Add Section</button>
             <button id="addLinkButton" class="button" type="button">Add Link</button>
-            <button id="toggleLinksEditButton" class="ghost-button" type="button">Edit</button>
           </div>
         </div>
         <div id="sectionList" class="section-list"></div>
@@ -461,8 +497,8 @@
         <div class="panel-head">
           <h2>Tasks</h2>
           <div class="panel-actions">
-            <button id="addTaskButton" class="button" type="button">Add Task</button>
             <button id="toggleTasksEditButton" class="ghost-button" type="button">Edit</button>
+            <button id="addTaskButton" class="button" type="button">Add Task</button>
           </div>
         </div>
 
@@ -558,6 +594,7 @@
     let state = loadState();
     let linksEditMode = false;
     let tasksEditMode = false;
+    let dragState = null;
 
     const todayLabel = document.getElementById("todayLabel");
     const sectionList = document.getElementById("sectionList");
@@ -710,6 +747,225 @@
       dialog.close();
     }
 
+    function defaultLinkTitle(url) {
+      const host = getHostname(url);
+      if (!host) {
+        return "New Link";
+      }
+
+      return host
+        .split(".")[0]
+        .split(/[-_]/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+    }
+
+    function moveItem(list, fromIndex, toIndex) {
+      if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
+        return list;
+      }
+
+      const clone = [...list];
+      const [item] = clone.splice(fromIndex, 1);
+      clone.splice(toIndex, 0, item);
+      return clone;
+    }
+
+    function clearDropTargets() {
+      document.querySelectorAll(".is-drop-target").forEach((element) => {
+        element.classList.remove("is-drop-target");
+      });
+    }
+
+    function parseDroppedLink(dataTransfer) {
+      const uriList = dataTransfer.getData("text/uri-list").trim();
+      const plainText = dataTransfer.getData("text/plain").trim();
+      const html = dataTransfer.getData("text/html");
+
+      let url = "";
+      let title = "";
+
+      if (uriList) {
+        url = uriList.split("\n").find((line) => line && !line.startsWith("#")) || "";
+      }
+
+      if (html) {
+        const htmlDoc = new DOMParser().parseFromString(html, "text/html");
+        const anchor = htmlDoc.querySelector("a");
+        if (anchor) {
+          url = url || anchor.href || "";
+          title = anchor.textContent.trim();
+        }
+      }
+
+      if (!url && plainText) {
+        const urlMatch = plainText.match(/https?:\/\/\S+/);
+        if (urlMatch) {
+          url = urlMatch[0];
+          title = plainText.replace(urlMatch[0], "").trim();
+        } else if (/^https?:\/\//.test(plainText)) {
+          url = plainText;
+        }
+      }
+
+      if (!url) {
+        return null;
+      }
+
+      return {
+        url,
+        title: title || defaultLinkTitle(url)
+      };
+    }
+
+    function addDroppedLink(sectionId, dataTransfer) {
+      const dropped = parseDroppedLink(dataTransfer);
+      if (!dropped) {
+        return false;
+      }
+
+      const section = state.sections.find((item) => item.id === sectionId);
+      if (!section) {
+        return false;
+      }
+
+      section.links.push({
+        id: uid("link"),
+        title: dropped.title,
+        url: dropped.url
+      });
+      saveState();
+      renderSections();
+      return true;
+    }
+
+    function attachSectionDropHandlers(element, section) {
+      element.addEventListener("dragover", (event) => {
+        const hasExternalLink = Array.from(event.dataTransfer.types || []).some((type) =>
+          ["text/uri-list", "text/plain", "text/html"].includes(type)
+        );
+        if (!dragState && !hasExternalLink) {
+          return;
+        }
+
+        event.preventDefault();
+        element.classList.add("is-drop-target");
+      });
+
+      element.addEventListener("dragleave", () => {
+        element.classList.remove("is-drop-target");
+      });
+
+      element.addEventListener("drop", (event) => {
+        event.preventDefault();
+        element.classList.remove("is-drop-target");
+
+        if (dragState?.type === "section") {
+          const fromIndex = state.sections.findIndex((item) => item.id === dragState.sectionId);
+          const toIndex = state.sections.findIndex((item) => item.id === section.id);
+          state.sections = moveItem(state.sections, fromIndex, toIndex);
+          saveState();
+          renderSections();
+          dragState = null;
+          return;
+        }
+
+        if (dragState?.type === "link") {
+          const sourceSection = state.sections.find((item) => item.id === dragState.sectionId);
+          const targetSection = state.sections.find((item) => item.id === section.id);
+          if (!sourceSection || !targetSection) {
+            dragState = null;
+            return;
+          }
+
+          const sourceIndex = sourceSection.links.findIndex((item) => item.id === dragState.linkId);
+          const [movedLink] = sourceSection.links.splice(sourceIndex, 1);
+          if (!movedLink) {
+            dragState = null;
+            return;
+          }
+
+          targetSection.links.push(movedLink);
+          saveState();
+          renderSections();
+          dragState = null;
+          return;
+        }
+
+        addDroppedLink(section.id, event.dataTransfer);
+      });
+    }
+
+    function attachLinkDropHandlers(element, section, link) {
+      element.addEventListener("dragstart", (event) => {
+        if (!linksEditMode) {
+          event.preventDefault();
+          return;
+        }
+
+        dragState = {
+          type: "link",
+          sectionId: section.id,
+          linkId: link.id
+        };
+        event.dataTransfer.effectAllowed = "move";
+      });
+
+      element.addEventListener("dragend", () => {
+        dragState = null;
+        clearDropTargets();
+      });
+
+      element.addEventListener("dragover", (event) => {
+        if (!dragState || dragState.type !== "link") {
+          return;
+        }
+
+        event.preventDefault();
+        element.classList.add("is-drop-target");
+      });
+
+      element.addEventListener("dragleave", () => {
+        element.classList.remove("is-drop-target");
+      });
+
+      element.addEventListener("drop", (event) => {
+        if (!dragState || dragState.type !== "link") {
+          return;
+        }
+
+        event.preventDefault();
+        element.classList.remove("is-drop-target");
+
+        const sourceSection = state.sections.find((item) => item.id === dragState.sectionId);
+        const targetSection = state.sections.find((item) => item.id === section.id);
+        if (!sourceSection || !targetSection) {
+          dragState = null;
+          return;
+        }
+
+        const sourceIndex = sourceSection.links.findIndex((item) => item.id === dragState.linkId);
+        const targetIndex = targetSection.links.findIndex((item) => item.id === link.id);
+        const [movedLink] = sourceSection.links.splice(sourceIndex, 1);
+        if (!movedLink) {
+          dragState = null;
+          return;
+        }
+
+        if (sourceSection.id === targetSection.id) {
+          const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+          targetSection.links.splice(adjustedTargetIndex, 0, movedLink);
+        } else {
+          targetSection.links.splice(targetIndex, 0, movedLink);
+        }
+
+        saveState();
+        renderSections();
+        dragState = null;
+      });
+    }
+
     function renderSections() {
       sectionList.innerHTML = "";
       toggleLinksEditButton.classList.toggle("is-active", linksEditMode);
@@ -726,6 +982,24 @@
       state.sections.forEach((section) => {
         const card = document.createElement("section");
         card.className = "section-card";
+        card.draggable = linksEditMode;
+        card.addEventListener("dragstart", (event) => {
+          if (!linksEditMode) {
+            event.preventDefault();
+            return;
+          }
+
+          dragState = {
+            type: "section",
+            sectionId: section.id
+          };
+          event.dataTransfer.effectAllowed = "move";
+        });
+        card.addEventListener("dragend", () => {
+          dragState = null;
+          clearDropTargets();
+        });
+        attachSectionDropHandlers(card, section);
 
         const header = document.createElement("div");
         header.className = "section-header";
@@ -785,6 +1059,8 @@
             anchor.href = link.url;
             anchor.target = "_blank";
             anchor.rel = "noreferrer";
+            anchor.draggable = linksEditMode;
+            attachLinkDropHandlers(anchor, section, link);
 
             const faviconWrap = document.createElement("div");
             faviconWrap.className = "favicon-wrap";
@@ -862,7 +1138,9 @@
         return;
       }
 
-      state.todos.forEach((todo) => {
+      state.todos
+        .filter((todo) => tasksEditMode || !todo.completed)
+        .forEach((todo) => {
         const item = document.createElement("div");
         item.className = "todo-item" + (todo.completed ? " completed" : "");
 
@@ -925,6 +1203,13 @@
         item.append(checkbox, body, actions);
         todoList.append(item);
       });
+
+      if (!todoList.children.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No open tasks.";
+        todoList.append(empty);
+      }
     }
 
     function render() {
