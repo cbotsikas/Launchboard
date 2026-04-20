@@ -57,30 +57,17 @@
 
     .hero {
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: space-between;
       gap: 24px;
-      margin-bottom: 28px;
-    }
-
-    .hero h1 {
-      margin: 0;
-      font-size: clamp(2rem, 4vw, 3.4rem);
-      line-height: 1;
-      letter-spacing: -0.04em;
+      margin-bottom: 20px;
     }
 
     .hero p {
-      margin: 0 0 8px;
+      margin: 0;
       color: var(--muted);
       font-size: 1rem;
-    }
-
-    .hero-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+      font-weight: 600;
     }
 
     .layout {
@@ -161,7 +148,7 @@
 
     .section-actions,
     .card-actions,
-    .hero-actions {
+    .panel-actions {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
@@ -186,6 +173,12 @@
     .button {
       background: var(--text);
       border-color: var(--text);
+      color: #fff;
+    }
+
+    .ghost-button.is-active {
+      border-color: var(--text);
+      background: var(--text);
       color: #fff;
     }
 
@@ -241,6 +234,10 @@
     .link-meta {
       min-width: 0;
       flex: 1;
+    }
+
+    .link-card.is-editing {
+      padding-right: 10px;
     }
 
     .link-title {
@@ -360,6 +357,10 @@
       gap: 8px;
     }
 
+    .hidden {
+      display: none !important;
+    }
+
     dialog {
       width: min(560px, calc(100vw - 32px));
       border: none;
@@ -440,20 +441,17 @@
     <header class="hero">
       <div>
         <p id="todayLabel">Today</p>
-        <h1>Quick Access</h1>
-      </div>
-      <div class="hero-actions">
-        <button id="addSectionButton" class="button" type="button">Add Section</button>
-        <button id="resetButton" class="ghost-button" type="button">Reset Sample Data</button>
       </div>
     </header>
 
     <div class="layout">
       <section class="panel links-panel">
         <div class="panel-head">
-          <div>
-            <h2>Links</h2>
-            <div class="subtle">Grouped shortcuts for repositories, Swagger pages, Confluence docs, boards, and tools.</div>
+          <h2>Links</h2>
+          <div class="panel-actions">
+            <button id="addSectionButton" class="ghost-button" type="button">Add Section</button>
+            <button id="addLinkButton" class="button" type="button">Add Link</button>
+            <button id="toggleLinksEditButton" class="ghost-button" type="button">Edit</button>
           </div>
         </div>
         <div id="sectionList" class="section-list"></div>
@@ -461,27 +459,12 @@
 
       <aside class="panel sidebar">
         <div class="panel-head">
-          <div>
-            <h2>Tasks</h2>
-            <div class="subtle">Keep quick reminders here. A task can carry a link if it should open a page.</div>
+          <h2>Tasks</h2>
+          <div class="panel-actions">
+            <button id="addTaskButton" class="button" type="button">Add Task</button>
+            <button id="toggleTasksEditButton" class="ghost-button" type="button">Edit</button>
           </div>
         </div>
-
-        <form id="todoForm" class="todo-form">
-          <div class="field">
-            <label for="todoTitle">Task</label>
-            <input id="todoTitle" name="title" type="text" maxlength="120" placeholder="Prepare Jira summary" required>
-          </div>
-          <div class="field">
-            <label for="todoUrl">Link (optional)</label>
-            <input id="todoUrl" name="url" type="url" maxlength="500" placeholder="https://...">
-          </div>
-          <div class="field">
-            <label for="todoNote">Note (optional)</label>
-            <textarea id="todoNote" name="note" maxlength="400" placeholder="Context, next step, owner..."></textarea>
-          </div>
-          <button class="button" type="submit">Add Task</button>
-        </form>
 
         <div id="todoList" class="todo-list"></div>
       </aside>
@@ -515,8 +498,12 @@
         <button id="closeLinkDialog" class="icon-button" type="button" aria-label="Close">x</button>
       </div>
       <form id="linkForm" class="modal-form">
-        <input id="linkSectionId" type="hidden" name="sectionId">
         <input id="linkId" type="hidden" name="id">
+        <input id="linkOriginalSectionId" type="hidden" name="originalSectionId">
+        <div class="field">
+          <label for="linkSection">Section</label>
+          <select id="linkSection" name="sectionId" required></select>
+        </div>
         <div class="field">
           <label for="linkTitle">Title</label>
           <input id="linkTitle" name="title" type="text" maxlength="80" placeholder="Team Wiki" required>
@@ -533,6 +520,34 @@
     </div>
   </dialog>
 
+  <dialog id="taskDialog">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="taskDialogTitle">Add Task</h3>
+        <button id="closeTaskDialog" class="icon-button" type="button" aria-label="Close">x</button>
+      </div>
+      <form id="taskForm" class="modal-form">
+        <input id="taskId" type="hidden" name="id">
+        <div class="field">
+          <label for="taskTitle">Task</label>
+          <input id="taskTitle" name="title" type="text" maxlength="120" placeholder="Prepare Jira summary" required>
+        </div>
+        <div class="field">
+          <label for="taskUrl">Link (optional)</label>
+          <input id="taskUrl" name="url" type="url" maxlength="500" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label for="taskNote">Note (optional)</label>
+          <textarea id="taskNote" name="note" maxlength="400" placeholder="Context, next step, owner..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" data-close-dialog="taskDialog">Cancel</button>
+          <button class="button" type="submit">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
   <script>
     const STORAGE_KEY = "start-page-state-v1";
     const initialState = {
@@ -541,13 +556,17 @@
     };
 
     let state = loadState();
+    let linksEditMode = false;
+    let tasksEditMode = false;
 
     const todayLabel = document.getElementById("todayLabel");
     const sectionList = document.getElementById("sectionList");
     const todoList = document.getElementById("todoList");
-    const todoForm = document.getElementById("todoForm");
-    const resetButton = document.getElementById("resetButton");
     const addSectionButton = document.getElementById("addSectionButton");
+    const addLinkButton = document.getElementById("addLinkButton");
+    const addTaskButton = document.getElementById("addTaskButton");
+    const toggleLinksEditButton = document.getElementById("toggleLinksEditButton");
+    const toggleTasksEditButton = document.getElementById("toggleTasksEditButton");
 
     const sectionDialog = document.getElementById("sectionDialog");
     const sectionDialogTitle = document.getElementById("sectionDialogTitle");
@@ -558,10 +577,19 @@
     const linkDialog = document.getElementById("linkDialog");
     const linkDialogTitle = document.getElementById("linkDialogTitle");
     const linkForm = document.getElementById("linkForm");
-    const linkSectionIdField = document.getElementById("linkSectionId");
     const linkIdField = document.getElementById("linkId");
+    const linkOriginalSectionIdField = document.getElementById("linkOriginalSectionId");
+    const linkSectionField = document.getElementById("linkSection");
     const linkTitleField = document.getElementById("linkTitle");
     const linkUrlField = document.getElementById("linkUrl");
+
+    const taskDialog = document.getElementById("taskDialog");
+    const taskDialogTitle = document.getElementById("taskDialogTitle");
+    const taskForm = document.getElementById("taskForm");
+    const taskIdField = document.getElementById("taskId");
+    const taskTitleField = document.getElementById("taskTitle");
+    const taskUrlField = document.getElementById("taskUrl");
+    const taskNoteField = document.getElementById("taskNote");
 
     function loadState() {
       try {
@@ -641,14 +669,41 @@
       sectionNameField.focus();
     }
 
+    function populateSectionOptions(selectedId) {
+      linkSectionField.innerHTML = "";
+      state.sections.forEach((section) => {
+        const option = document.createElement("option");
+        option.value = section.id;
+        option.textContent = section.name;
+        option.selected = section.id === selectedId;
+        linkSectionField.append(option);
+      });
+    }
+
     function openLinkDialog(sectionId, link) {
+      if (!state.sections.length) {
+        alert("Create a section first.");
+        return;
+      }
+
       linkDialogTitle.textContent = link ? "Edit Link" : "Add Link";
-      linkSectionIdField.value = sectionId;
       linkIdField.value = link?.id || "";
+      linkOriginalSectionIdField.value = sectionId || "";
+      populateSectionOptions(sectionId || state.sections[0].id);
       linkTitleField.value = link?.title || "";
       linkUrlField.value = link?.url || "";
       linkDialog.showModal();
       linkTitleField.focus();
+    }
+
+    function openTaskDialog(task) {
+      taskDialogTitle.textContent = task ? "Edit Task" : "Add Task";
+      taskIdField.value = task?.id || "";
+      taskTitleField.value = task?.title || "";
+      taskUrlField.value = task?.url || "";
+      taskNoteField.value = task?.note || "";
+      taskDialog.showModal();
+      taskTitleField.focus();
     }
 
     function closeDialog(dialog) {
@@ -657,6 +712,8 @@
 
     function renderSections() {
       sectionList.innerHTML = "";
+      toggleLinksEditButton.classList.toggle("is-active", linksEditMode);
+      toggleLinksEditButton.textContent = linksEditMode ? "Done" : "Edit";
 
       if (!state.sections.length) {
         const empty = document.createElement("div");
@@ -689,21 +746,15 @@
         const actions = document.createElement("div");
         actions.className = "section-actions";
 
-        const addLinkButton = document.createElement("button");
-        addLinkButton.className = "ghost-button";
-        addLinkButton.type = "button";
-        addLinkButton.textContent = "Add Link";
-        addLinkButton.addEventListener("click", () => openLinkDialog(section.id));
-
         const editSectionButton = document.createElement("button");
-        editSectionButton.className = "icon-button";
+        editSectionButton.className = "icon-button" + (linksEditMode ? "" : " hidden");
         editSectionButton.type = "button";
         editSectionButton.textContent = "E";
         editSectionButton.title = "Edit section";
         editSectionButton.addEventListener("click", () => openSectionDialog(section));
 
         const deleteSectionButton = document.createElement("button");
-        deleteSectionButton.className = "icon-button";
+        deleteSectionButton.className = "icon-button" + (linksEditMode ? "" : " hidden");
         deleteSectionButton.type = "button";
         deleteSectionButton.textContent = "D";
         deleteSectionButton.title = "Delete section";
@@ -715,7 +766,7 @@
           }
         });
 
-        actions.append(addLinkButton, editSectionButton, deleteSectionButton);
+        actions.append(editSectionButton, deleteSectionButton);
         header.append(titleBlock, actions);
         card.append(header);
 
@@ -730,7 +781,7 @@
 
           section.links.forEach((link) => {
             const anchor = document.createElement("a");
-            anchor.className = "link-card";
+            anchor.className = "link-card" + (linksEditMode ? " is-editing" : "");
             anchor.href = link.url;
             anchor.target = "_blank";
             anchor.rel = "noreferrer";
@@ -760,7 +811,7 @@
             meta.append(linkTitle, linkUrl);
 
             const actionRow = document.createElement("div");
-            actionRow.className = "card-actions";
+            actionRow.className = "card-actions" + (linksEditMode ? "" : " hidden");
 
             const editLinkButton = document.createElement("button");
             editLinkButton.className = "icon-button";
@@ -800,6 +851,8 @@
 
     function renderTodos() {
       todoList.innerHTML = "";
+      toggleTasksEditButton.classList.toggle("is-active", tasksEditMode);
+      toggleTasksEditButton.textContent = tasksEditMode ? "Done" : "Edit";
 
       if (!state.todos.length) {
         const empty = document.createElement("div");
@@ -848,7 +901,14 @@
         }
 
         const actions = document.createElement("div");
-        actions.className = "todo-actions";
+        actions.className = "todo-actions" + (tasksEditMode ? "" : " hidden");
+
+        const editButton = document.createElement("button");
+        editButton.className = "icon-button";
+        editButton.type = "button";
+        editButton.textContent = "E";
+        editButton.title = "Edit task";
+        editButton.addEventListener("click", () => openTaskDialog(todo));
 
         const deleteButton = document.createElement("button");
         deleteButton.className = "icon-button";
@@ -861,7 +921,7 @@
           renderTodos();
         });
 
-        actions.append(deleteButton);
+        actions.append(editButton, deleteButton);
         item.append(checkbox, body, actions);
         todoList.append(item);
       });
@@ -874,27 +934,14 @@
     }
 
     addSectionButton.addEventListener("click", () => openSectionDialog());
-
-    resetButton.addEventListener("click", () => {
-      if (confirm("Replace current data with the sample sections and tasks?")) {
-        state = structuredClone(initialState);
-        saveState();
-        render();
-      }
+    addLinkButton.addEventListener("click", () => openLinkDialog(state.sections[0]?.id || ""));
+    addTaskButton.addEventListener("click", () => openTaskDialog());
+    toggleLinksEditButton.addEventListener("click", () => {
+      linksEditMode = !linksEditMode;
+      renderSections();
     });
-
-    todoForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const formData = new FormData(todoForm);
-      state.todos.unshift({
-        id: uid("todo"),
-        title: String(formData.get("title")).trim(),
-        url: normalizeUrl(String(formData.get("url") || "")),
-        note: String(formData.get("note") || "").trim(),
-        completed: false
-      });
-      todoForm.reset();
-      saveState();
+    toggleTasksEditButton.addEventListener("click", () => {
+      tasksEditMode = !tasksEditMode;
       renderTodos();
     });
 
@@ -927,10 +974,11 @@
       event.preventDefault();
       const formData = new FormData(linkForm);
       const sectionId = String(formData.get("sectionId"));
+      const originalSectionId = String(formData.get("originalSectionId") || "");
       const id = String(formData.get("id") || "");
-      const section = state.sections.find((item) => item.id === sectionId);
+      const targetSection = state.sections.find((item) => item.id === sectionId);
 
-      if (!section) {
+      if (!targetSection) {
         return;
       }
 
@@ -940,19 +988,54 @@
       };
 
       if (id) {
-        const link = section.links.find((item) => item.id === id);
-        if (link) {
+        const originalSection = state.sections.find((item) => item.id === originalSectionId) || targetSection;
+        const link = originalSection.links.find((item) => item.id === id);
+        if (link && originalSection.id !== targetSection.id) {
+          originalSection.links = originalSection.links.filter((item) => item.id !== id);
+          targetSection.links.push({ id, ...payload });
+        } else if (link) {
           link.title = payload.title;
           link.url = payload.url;
         }
       } else {
-        section.links.push({ id: uid("link"), ...payload });
+        targetSection.links.push({ id: uid("link"), ...payload });
       }
 
       saveState();
       renderSections();
       closeDialog(linkDialog);
       linkForm.reset();
+    });
+
+    taskForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(taskForm);
+      const id = String(formData.get("id") || "");
+      const payload = {
+        title: String(formData.get("title") || "").trim(),
+        url: normalizeUrl(String(formData.get("url") || "")),
+        note: String(formData.get("note") || "").trim()
+      };
+
+      if (id) {
+        const task = state.todos.find((item) => item.id === id);
+        if (task) {
+          task.title = payload.title;
+          task.url = payload.url;
+          task.note = payload.note;
+        }
+      } else {
+        state.todos.unshift({
+          id: uid("todo"),
+          ...payload,
+          completed: false
+        });
+      }
+
+      saveState();
+      renderTodos();
+      closeDialog(taskDialog);
+      taskForm.reset();
     });
 
     document.querySelectorAll("[data-close-dialog]").forEach((button) => {
@@ -964,6 +1047,7 @@
 
     document.getElementById("closeSectionDialog").addEventListener("click", () => closeDialog(sectionDialog));
     document.getElementById("closeLinkDialog").addEventListener("click", () => closeDialog(linkDialog));
+    document.getElementById("closeTaskDialog").addEventListener("click", () => closeDialog(taskDialog));
 
     render();
   </script>
