@@ -146,12 +146,6 @@
       letter-spacing: -0.02em;
     }
 
-    .section-count {
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
     .section-actions,
     .card-actions,
     .panel-actions {
@@ -180,7 +174,6 @@
       background: var(--text);
       border-color: var(--text);
       color: #fff;
-      order: 99;
     }
 
     .ghost-button.is-active {
@@ -210,19 +203,34 @@
       opacity: 1;
       pointer-events: auto;
       transform: translateY(0);
+      max-width: 140px;
+      padding-left: 14px;
+      padding-right: 14px;
+      border-width: 1px;
     }
 
     .panel-actions .ghost-button {
       opacity: 0;
       pointer-events: none;
       transform: translateY(-4px);
-      transition: opacity 0.16s ease, transform 0.16s ease;
+      max-width: 0;
+      padding-left: 0;
+      padding-right: 0;
+      border-width: 0;
+      margin: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      transition: opacity 0.16s ease, transform 0.16s ease, max-width 0.16s ease, padding 0.16s ease;
     }
 
     .panel-actions .ghost-button.is-active {
       opacity: 1;
       pointer-events: auto;
       transform: translateY(0);
+      max-width: 140px;
+      padding-left: 14px;
+      padding-right: 14px;
+      border-width: 1px;
     }
 
     .link-grid {
@@ -242,8 +250,16 @@
     }
 
     .link-card[draggable="true"],
-    .section-card[draggable="true"] {
+    .section-card[draggable="true"],
+    .todo-item[draggable="true"] {
       cursor: grab;
+    }
+
+    .link-card.drag-armed,
+    .section-card.drag-armed,
+    .todo-item.drag-armed {
+      cursor: grabbing;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
     }
 
     .favicon-wrap {
@@ -388,6 +404,13 @@
       white-space: pre-wrap;
     }
 
+    .todo-meta {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
     .todo-actions {
       display: flex;
       gap: 8px;
@@ -485,8 +508,8 @@
         <div class="panel-head">
           <h2>Links</h2>
           <div class="panel-actions">
-            <button id="toggleLinksEditButton" class="ghost-button" type="button">Edit</button>
             <button id="addSectionButton" class="ghost-button" type="button">Add Section</button>
+            <button id="toggleLinksEditButton" class="ghost-button" type="button">Edit</button>
             <button id="addLinkButton" class="button" type="button">Add Link</button>
           </div>
         </div>
@@ -595,6 +618,7 @@
     let linksEditMode = false;
     let tasksEditMode = false;
     let dragState = null;
+    let pressTimer = null;
 
     const todayLabel = document.getElementById("todayLabel");
     const sectionList = document.getElementById("sectionList");
@@ -640,11 +664,26 @@
           return structuredClone(initialState);
         }
 
-        return parsed;
+        return migrateState(parsed);
       } catch (error) {
         console.error("Failed to load state", error);
         return structuredClone(initialState);
       }
+    }
+
+    function migrateState(source) {
+      const now = new Date().toISOString();
+      return {
+        sections: source.sections.map((section) => ({
+          ...section,
+          links: Array.isArray(section.links) ? section.links : []
+        })),
+        todos: source.todos.map((todo) => ({
+          ...todo,
+          createdAt: todo.createdAt || now,
+          completedAt: todo.completed ? (todo.completedAt || now) : null
+        }))
+      };
     }
 
     function saveState() {
@@ -778,6 +817,56 @@
       });
     }
 
+    function clearDragArmed() {
+      document.querySelectorAll(".drag-armed").forEach((element) => {
+        element.classList.remove("drag-armed");
+      });
+    }
+
+    function releasePressTimer() {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    }
+
+    function armDragOnHold(element, enabled) {
+      element.addEventListener("pointerdown", (event) => {
+        if (!enabled() || event.button !== 0) {
+          return;
+        }
+
+        releasePressTimer();
+        pressTimer = setTimeout(() => {
+          clearDragArmed();
+          element.classList.add("drag-armed");
+        }, 220);
+      });
+
+      ["pointerup", "pointerleave", "pointercancel"].forEach((eventName) => {
+        element.addEventListener(eventName, () => {
+          releasePressTimer();
+        });
+      });
+    }
+
+    function canStartDrag(element, enabled) {
+      return enabled() && element.classList.contains("drag-armed");
+    }
+
+    function formatDateTime(value) {
+      if (!value) {
+        return "";
+      }
+
+      return new Intl.DateTimeFormat(undefined, {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(value));
+    }
+
     function parseDroppedLink(dataTransfer) {
       const uriList = dataTransfer.getData("text/uri-list").trim();
       const plainText = dataTransfer.getData("text/plain").trim();
@@ -898,8 +987,10 @@
     }
 
     function attachLinkDropHandlers(element, section, link) {
+      armDragOnHold(element, () => linksEditMode);
+
       element.addEventListener("dragstart", (event) => {
-        if (!linksEditMode) {
+        if (!canStartDrag(element, () => linksEditMode)) {
           event.preventDefault();
           return;
         }
@@ -914,6 +1005,7 @@
 
       element.addEventListener("dragend", () => {
         dragState = null;
+        clearDragArmed();
         clearDropTargets();
       });
 
@@ -963,6 +1055,60 @@
         saveState();
         renderSections();
         dragState = null;
+        clearDragArmed();
+      });
+    }
+
+    function attachTaskDropHandlers(element, todo) {
+      armDragOnHold(element, () => tasksEditMode);
+
+      element.addEventListener("dragstart", (event) => {
+        if (!canStartDrag(element, () => tasksEditMode)) {
+          event.preventDefault();
+          return;
+        }
+
+        dragState = {
+          type: "task",
+          taskId: todo.id
+        };
+        event.dataTransfer.effectAllowed = "move";
+      });
+
+      element.addEventListener("dragend", () => {
+        dragState = null;
+        clearDragArmed();
+        clearDropTargets();
+      });
+
+      element.addEventListener("dragover", (event) => {
+        if (!dragState || dragState.type !== "task") {
+          return;
+        }
+
+        event.preventDefault();
+        element.classList.add("is-drop-target");
+      });
+
+      element.addEventListener("dragleave", () => {
+        element.classList.remove("is-drop-target");
+      });
+
+      element.addEventListener("drop", (event) => {
+        if (!dragState || dragState.type !== "task") {
+          return;
+        }
+
+        event.preventDefault();
+        element.classList.remove("is-drop-target");
+
+        const fromIndex = state.todos.findIndex((item) => item.id === dragState.taskId);
+        const toIndex = state.todos.findIndex((item) => item.id === todo.id);
+        state.todos = moveItem(state.todos, fromIndex, toIndex);
+        saveState();
+        renderTodos();
+        dragState = null;
+        clearDragArmed();
       });
     }
 
@@ -983,8 +1129,9 @@
         const card = document.createElement("section");
         card.className = "section-card";
         card.draggable = linksEditMode;
+        armDragOnHold(card, () => linksEditMode);
         card.addEventListener("dragstart", (event) => {
-          if (!linksEditMode) {
+          if (!canStartDrag(card, () => linksEditMode)) {
             event.preventDefault();
             return;
           }
@@ -997,6 +1144,7 @@
         });
         card.addEventListener("dragend", () => {
           dragState = null;
+          clearDragArmed();
           clearDropTargets();
         });
         attachSectionDropHandlers(card, section);
@@ -1009,13 +1157,9 @@
 
         const title = document.createElement("h3");
         title.className = "section-title";
-        title.textContent = section.name;
+        title.textContent = `${section.name} (${section.links.length})`;
 
-        const count = document.createElement("div");
-        count.className = "section-count";
-        count.textContent = section.links.length + (section.links.length === 1 ? " link" : " links");
-
-        titleBlock.append(title, count);
+        titleBlock.append(title);
 
         const actions = document.createElement("div");
         actions.className = "section-actions";
@@ -1138,11 +1282,16 @@
         return;
       }
 
-      state.todos
-        .filter((todo) => tasksEditMode || !todo.completed)
+      const todosForView = [...state.todos]
+        .sort((left, right) => Number(left.completed) - Number(right.completed))
+        .filter((todo) => tasksEditMode || !todo.completed);
+
+      todosForView
         .forEach((todo) => {
         const item = document.createElement("div");
         item.className = "todo-item" + (todo.completed ? " completed" : "");
+        item.draggable = tasksEditMode;
+        attachTaskDropHandlers(item, todo);
 
         const checkbox = document.createElement("input");
         checkbox.className = "todo-checkbox";
@@ -1150,6 +1299,7 @@
         checkbox.checked = todo.completed;
         checkbox.addEventListener("change", () => {
           todo.completed = checkbox.checked;
+          todo.completedAt = checkbox.checked ? new Date().toISOString() : null;
           saveState();
           renderTodos();
         });
@@ -1176,6 +1326,13 @@
           note.className = "todo-note";
           note.textContent = todo.note;
           body.append(note);
+        }
+
+        if (todo.completedAt) {
+          const meta = document.createElement("div");
+          meta.className = "todo-meta";
+          meta.textContent = `Completed ${formatDateTime(todo.completedAt)}`;
+          body.append(meta);
         }
 
         const actions = document.createElement("div");
@@ -1313,7 +1470,9 @@
         state.todos.unshift({
           id: uid("todo"),
           ...payload,
-          completed: false
+          completed: false,
+          createdAt: new Date().toISOString(),
+          completedAt: null
         });
       }
 
