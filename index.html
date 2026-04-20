@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Start Page</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f1e8;
+      --panel: #fffdf8;
+      --panel-strong: #ffffff;
+      --panel-soft: #efe7d7;
+      --border: #d9cfba;
+      --text: #1f2933;
+      --muted: #607080;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --success: #2f855a;
+      --danger: #c2410c;
+      --shadow: 0 18px 40px rgba(65, 47, 21, 0.08);
+      --radius: 20px;
+      --radius-sm: 14px;
+      --font: "Segoe UI", "Aptos", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.85), transparent 35%),
+        linear-gradient(180deg, #f9f6ef 0%, var(--bg) 100%);
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 32px;
+    }
+
+    .hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(300px, 420px);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel {
+      background: rgba(255, 253, 248, 0.82);
+      border: 1px solid rgba(217, 207, 186, 0.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .links-panel {
+      padding: 22px;
+    }
+
+    .sidebar {
+      padding: 22px;
+      position: sticky;
+      top: 20px;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .panel-head h2,
+    .panel-head h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .section-list {
+      display: grid;
+      gap: 18px;
+    }
+
+    .section-card {
+      padding: 18px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .section-title-block {
+      min-width: 0;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 1.03rem;
+      letter-spacing: -0.02em;
+    }
+
+    .section-count {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .section-actions,
+    .card-actions,
+    .hero-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .button,
+    .ghost-button,
+    .icon-button {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--panel-strong);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .button,
+    .ghost-button {
+      padding: 10px 14px;
+    }
+
+    .button {
+      background: var(--text);
+      border-color: var(--text);
+      color: #fff;
+    }
+
+    .ghost-button:hover,
+    .button:hover,
+    .icon-button:hover,
+    .link-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 18px rgba(31, 41, 51, 0.08);
+    }
+
+    .icon-button {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+    }
+
+    .link-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+      gap: 12px;
+    }
+
+    .link-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px;
+      border-radius: 16px;
+      background: var(--panel-strong);
+      border: 1px solid var(--border);
+    }
+
+    .favicon-wrap {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .favicon-fallback {
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: #163b73;
+      letter-spacing: 0.04em;
+    }
+
+    .link-meta {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .link-title {
+      display: block;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .link-url {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .empty {
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.5);
+      text-align: center;
+    }
+
+    .todo-form,
+    .modal-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      padding: 11px 13px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+    }
+
+    .field textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+
+    .todo-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .todo-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: start;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+    }
+
+    .todo-item.completed .todo-title {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    .todo-checkbox {
+      width: 20px;
+      height: 20px;
+      margin-top: 3px;
+      accent-color: var(--success);
+    }
+
+    .todo-title {
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .todo-link {
+      display: inline-flex;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .todo-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .todo-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    dialog {
+      width: min(560px, calc(100vw - 32px));
+      border: none;
+      padding: 0;
+      border-radius: 24px;
+      background: transparent;
+    }
+
+    dialog::backdrop {
+      background: rgba(31, 41, 51, 0.34);
+      backdrop-filter: blur(4px);
+    }
+
+    .modal {
+      padding: 22px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 1080px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        padding: 18px;
+      }
+
+      .hero,
+      .panel-head,
+      .section-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .link-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <p id="todayLabel">Today</p>
+        <h1>Quick Access</h1>
+      </div>
+      <div class="hero-actions">
+        <button id="addSectionButton" class="button" type="button">Add Section</button>
+        <button id="resetButton" class="ghost-button" type="button">Reset Sample Data</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <section class="panel links-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Links</h2>
+            <div class="subtle">Grouped shortcuts for repositories, Swagger pages, Confluence docs, boards, and tools.</div>
+          </div>
+        </div>
+        <div id="sectionList" class="section-list"></div>
+      </section>
+
+      <aside class="panel sidebar">
+        <div class="panel-head">
+          <div>
+            <h2>Tasks</h2>
+            <div class="subtle">Keep quick reminders here. A task can carry a link if it should open a page.</div>
+          </div>
+        </div>
+
+        <form id="todoForm" class="todo-form">
+          <div class="field">
+            <label for="todoTitle">Task</label>
+            <input id="todoTitle" name="title" type="text" maxlength="120" placeholder="Prepare Jira summary" required>
+          </div>
+          <div class="field">
+            <label for="todoUrl">Link (optional)</label>
+            <input id="todoUrl" name="url" type="url" maxlength="500" placeholder="https://...">
+          </div>
+          <div class="field">
+            <label for="todoNote">Note (optional)</label>
+            <textarea id="todoNote" name="note" maxlength="400" placeholder="Context, next step, owner..."></textarea>
+          </div>
+          <button class="button" type="submit">Add Task</button>
+        </form>
+
+        <div id="todoList" class="todo-list"></div>
+      </aside>
+    </div>
+  </main>
+
+  <dialog id="sectionDialog">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="sectionDialogTitle">Add Section</h3>
+        <button id="closeSectionDialog" class="icon-button" type="button" aria-label="Close">x</button>
+      </div>
+      <form id="sectionForm" class="modal-form">
+        <input id="sectionId" type="hidden" name="id">
+        <div class="field">
+          <label for="sectionName">Section name</label>
+          <input id="sectionName" name="name" type="text" maxlength="60" placeholder="Repositories" required>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" data-close-dialog="sectionDialog">Cancel</button>
+          <button class="button" type="submit">Save Section</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="linkDialog">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="linkDialogTitle">Add Link</h3>
+        <button id="closeLinkDialog" class="icon-button" type="button" aria-label="Close">x</button>
+      </div>
+      <form id="linkForm" class="modal-form">
+        <input id="linkSectionId" type="hidden" name="sectionId">
+        <input id="linkId" type="hidden" name="id">
+        <div class="field">
+          <label for="linkTitle">Title</label>
+          <input id="linkTitle" name="title" type="text" maxlength="80" placeholder="Team Wiki" required>
+        </div>
+        <div class="field">
+          <label for="linkUrl">URL</label>
+          <input id="linkUrl" name="url" type="url" maxlength="500" placeholder="https://..." required>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" data-close-dialog="linkDialog">Cancel</button>
+          <button class="button" type="submit">Save Link</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <script>
+    const STORAGE_KEY = "start-page-state-v1";
+    const initialState = {
+      sections: [],
+      todos: []
+    };
+
+    let state = loadState();
+
+    const todayLabel = document.getElementById("todayLabel");
+    const sectionList = document.getElementById("sectionList");
+    const todoList = document.getElementById("todoList");
+    const todoForm = document.getElementById("todoForm");
+    const resetButton = document.getElementById("resetButton");
+    const addSectionButton = document.getElementById("addSectionButton");
+
+    const sectionDialog = document.getElementById("sectionDialog");
+    const sectionDialogTitle = document.getElementById("sectionDialogTitle");
+    const sectionForm = document.getElementById("sectionForm");
+    const sectionIdField = document.getElementById("sectionId");
+    const sectionNameField = document.getElementById("sectionName");
+
+    const linkDialog = document.getElementById("linkDialog");
+    const linkDialogTitle = document.getElementById("linkDialogTitle");
+    const linkForm = document.getElementById("linkForm");
+    const linkSectionIdField = document.getElementById("linkSectionId");
+    const linkIdField = document.getElementById("linkId");
+    const linkTitleField = document.getElementById("linkTitle");
+    const linkUrlField = document.getElementById("linkUrl");
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          return structuredClone(initialState);
+        }
+
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed.sections) || !Array.isArray(parsed.todos)) {
+          return structuredClone(initialState);
+        }
+
+        return parsed;
+      } catch (error) {
+        console.error("Failed to load state", error);
+        return structuredClone(initialState);
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function uid(prefix) {
+      return prefix + "-" + Math.random().toString(36).slice(2, 10);
+    }
+
+    function normalizeUrl(url) {
+      return url.trim();
+    }
+
+    function formatToday() {
+      const formatter = new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        day: "numeric",
+        month: "long"
+      });
+      todayLabel.textContent = formatter.format(new Date());
+    }
+
+    function getHostname(url) {
+      try {
+        return new URL(url).hostname.replace(/^www\./, "");
+      } catch {
+        return url;
+      }
+    }
+
+    function getInitials(title) {
+      return title
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0] || "")
+        .join("")
+        .toUpperCase();
+    }
+
+    function getBadgeColors(seed) {
+      let hash = 0;
+      for (let index = 0; index < seed.length; index += 1) {
+        hash = seed.charCodeAt(index) + ((hash << 5) - hash);
+      }
+
+      const hue = Math.abs(hash) % 360;
+      return {
+        background: `linear-gradient(180deg, hsl(${hue} 82% 94%), hsl(${hue} 72% 84%))`,
+        border: `hsl(${hue} 48% 74%)`
+      };
+    }
+
+    function openSectionDialog(section) {
+      sectionDialogTitle.textContent = section ? "Edit Section" : "Add Section";
+      sectionIdField.value = section?.id || "";
+      sectionNameField.value = section?.name || "";
+      sectionDialog.showModal();
+      sectionNameField.focus();
+    }
+
+    function openLinkDialog(sectionId, link) {
+      linkDialogTitle.textContent = link ? "Edit Link" : "Add Link";
+      linkSectionIdField.value = sectionId;
+      linkIdField.value = link?.id || "";
+      linkTitleField.value = link?.title || "";
+      linkUrlField.value = link?.url || "";
+      linkDialog.showModal();
+      linkTitleField.focus();
+    }
+
+    function closeDialog(dialog) {
+      dialog.close();
+    }
+
+    function renderSections() {
+      sectionList.innerHTML = "";
+
+      if (!state.sections.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No sections yet. Create one for repositories, Swagger, Confluence, or any other group you need.";
+        sectionList.append(empty);
+        return;
+      }
+
+      state.sections.forEach((section) => {
+        const card = document.createElement("section");
+        card.className = "section-card";
+
+        const header = document.createElement("div");
+        header.className = "section-header";
+
+        const titleBlock = document.createElement("div");
+        titleBlock.className = "section-title-block";
+
+        const title = document.createElement("h3");
+        title.className = "section-title";
+        title.textContent = section.name;
+
+        const count = document.createElement("div");
+        count.className = "section-count";
+        count.textContent = section.links.length + (section.links.length === 1 ? " link" : " links");
+
+        titleBlock.append(title, count);
+
+        const actions = document.createElement("div");
+        actions.className = "section-actions";
+
+        const addLinkButton = document.createElement("button");
+        addLinkButton.className = "ghost-button";
+        addLinkButton.type = "button";
+        addLinkButton.textContent = "Add Link";
+        addLinkButton.addEventListener("click", () => openLinkDialog(section.id));
+
+        const editSectionButton = document.createElement("button");
+        editSectionButton.className = "icon-button";
+        editSectionButton.type = "button";
+        editSectionButton.textContent = "E";
+        editSectionButton.title = "Edit section";
+        editSectionButton.addEventListener("click", () => openSectionDialog(section));
+
+        const deleteSectionButton = document.createElement("button");
+        deleteSectionButton.className = "icon-button";
+        deleteSectionButton.type = "button";
+        deleteSectionButton.textContent = "D";
+        deleteSectionButton.title = "Delete section";
+        deleteSectionButton.addEventListener("click", () => {
+          if (confirm(`Delete "${section.name}" and all its links?`)) {
+            state.sections = state.sections.filter((item) => item.id !== section.id);
+            saveState();
+            render();
+          }
+        });
+
+        actions.append(addLinkButton, editSectionButton, deleteSectionButton);
+        header.append(titleBlock, actions);
+        card.append(header);
+
+        if (!section.links.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "No links in this section yet.";
+          card.append(empty);
+        } else {
+          const grid = document.createElement("div");
+          grid.className = "link-grid";
+
+          section.links.forEach((link) => {
+            const anchor = document.createElement("a");
+            anchor.className = "link-card";
+            anchor.href = link.url;
+            anchor.target = "_blank";
+            anchor.rel = "noreferrer";
+
+            const faviconWrap = document.createElement("div");
+            faviconWrap.className = "favicon-wrap";
+
+            const fallback = document.createElement("div");
+            fallback.className = "favicon-fallback";
+            fallback.textContent = getInitials(link.title);
+            const badgeColors = getBadgeColors(getHostname(link.url));
+            faviconWrap.style.background = badgeColors.background;
+            faviconWrap.style.border = `1px solid ${badgeColors.border}`;
+            faviconWrap.append(fallback);
+
+            const meta = document.createElement("div");
+            meta.className = "link-meta";
+
+            const linkTitle = document.createElement("span");
+            linkTitle.className = "link-title";
+            linkTitle.textContent = link.title;
+
+            const linkUrl = document.createElement("span");
+            linkUrl.className = "link-url";
+            linkUrl.textContent = getHostname(link.url);
+
+            meta.append(linkTitle, linkUrl);
+
+            const actionRow = document.createElement("div");
+            actionRow.className = "card-actions";
+
+            const editLinkButton = document.createElement("button");
+            editLinkButton.className = "icon-button";
+            editLinkButton.type = "button";
+            editLinkButton.textContent = "E";
+            editLinkButton.title = "Edit link";
+            editLinkButton.addEventListener("click", (event) => {
+              event.preventDefault();
+              openLinkDialog(section.id, link);
+            });
+
+            const deleteLinkButton = document.createElement("button");
+            deleteLinkButton.className = "icon-button";
+            deleteLinkButton.type = "button";
+            deleteLinkButton.textContent = "D";
+            deleteLinkButton.title = "Delete link";
+            deleteLinkButton.addEventListener("click", (event) => {
+              event.preventDefault();
+              if (confirm(`Delete "${link.title}"?`)) {
+                section.links = section.links.filter((item) => item.id !== link.id);
+                saveState();
+                render();
+              }
+            });
+
+            actionRow.append(editLinkButton, deleteLinkButton);
+            anchor.append(faviconWrap, meta, actionRow);
+            grid.append(anchor);
+          });
+
+          card.append(grid);
+        }
+
+        sectionList.append(card);
+      });
+    }
+
+    function renderTodos() {
+      todoList.innerHTML = "";
+
+      if (!state.todos.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No tasks yet.";
+        todoList.append(empty);
+        return;
+      }
+
+      state.todos.forEach((todo) => {
+        const item = document.createElement("div");
+        item.className = "todo-item" + (todo.completed ? " completed" : "");
+
+        const checkbox = document.createElement("input");
+        checkbox.className = "todo-checkbox";
+        checkbox.type = "checkbox";
+        checkbox.checked = todo.completed;
+        checkbox.addEventListener("change", () => {
+          todo.completed = checkbox.checked;
+          saveState();
+          renderTodos();
+        });
+
+        const body = document.createElement("div");
+
+        const title = document.createElement("p");
+        title.className = "todo-title";
+        title.textContent = todo.title;
+        body.append(title);
+
+        if (todo.url) {
+          const link = document.createElement("a");
+          link.className = "todo-link";
+          link.href = todo.url;
+          link.target = "_blank";
+          link.rel = "noreferrer";
+          link.textContent = getHostname(todo.url);
+          body.append(link);
+        }
+
+        if (todo.note) {
+          const note = document.createElement("div");
+          note.className = "todo-note";
+          note.textContent = todo.note;
+          body.append(note);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "todo-actions";
+
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "icon-button";
+        deleteButton.type = "button";
+        deleteButton.textContent = "D";
+        deleteButton.title = "Delete task";
+        deleteButton.addEventListener("click", () => {
+          state.todos = state.todos.filter((item) => item.id !== todo.id);
+          saveState();
+          renderTodos();
+        });
+
+        actions.append(deleteButton);
+        item.append(checkbox, body, actions);
+        todoList.append(item);
+      });
+    }
+
+    function render() {
+      formatToday();
+      renderSections();
+      renderTodos();
+    }
+
+    addSectionButton.addEventListener("click", () => openSectionDialog());
+
+    resetButton.addEventListener("click", () => {
+      if (confirm("Replace current data with the sample sections and tasks?")) {
+        state = structuredClone(initialState);
+        saveState();
+        render();
+      }
+    });
+
+    todoForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(todoForm);
+      state.todos.unshift({
+        id: uid("todo"),
+        title: String(formData.get("title")).trim(),
+        url: normalizeUrl(String(formData.get("url") || "")),
+        note: String(formData.get("note") || "").trim(),
+        completed: false
+      });
+      todoForm.reset();
+      saveState();
+      renderTodos();
+    });
+
+    sectionForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(sectionForm);
+      const id = String(formData.get("id") || "");
+      const name = String(formData.get("name") || "").trim();
+
+      if (id) {
+        const section = state.sections.find((item) => item.id === id);
+        if (section) {
+          section.name = name;
+        }
+      } else {
+        state.sections.push({
+          id: uid("section"),
+          name,
+          links: []
+        });
+      }
+
+      saveState();
+      renderSections();
+      closeDialog(sectionDialog);
+      sectionForm.reset();
+    });
+
+    linkForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(linkForm);
+      const sectionId = String(formData.get("sectionId"));
+      const id = String(formData.get("id") || "");
+      const section = state.sections.find((item) => item.id === sectionId);
+
+      if (!section) {
+        return;
+      }
+
+      const payload = {
+        title: String(formData.get("title") || "").trim(),
+        url: normalizeUrl(String(formData.get("url") || ""))
+      };
+
+      if (id) {
+        const link = section.links.find((item) => item.id === id);
+        if (link) {
+          link.title = payload.title;
+          link.url = payload.url;
+        }
+      } else {
+        section.links.push({ id: uid("link"), ...payload });
+      }
+
+      saveState();
+      renderSections();
+      closeDialog(linkDialog);
+      linkForm.reset();
+    });
+
+    document.querySelectorAll("[data-close-dialog]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const dialog = document.getElementById(button.getAttribute("data-close-dialog"));
+        closeDialog(dialog);
+      });
+    });
+
+    document.getElementById("closeSectionDialog").addEventListener("click", () => closeDialog(sectionDialog));
+    document.getElementById("closeLinkDialog").addEventListener("click", () => closeDialog(linkDialog));
+
+    render();
+  </script>
+</body>
+</html>
