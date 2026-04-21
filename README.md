@@ -2,6 +2,8 @@
 
 Launchboard is a lightweight offline start page for quick access to work links and personal task tracking.
 
+![Launchboard screenshot](docs/launchboard-screenshot.png)
+
 ## Why It Exists
 
 This project was built for a constrained browser environment where:
