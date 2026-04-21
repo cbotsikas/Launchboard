@@ -147,7 +147,6 @@
     }
 
     .section-actions,
-    .card-actions,
     .panel-actions {
       display: flex;
       gap: 8px;
@@ -240,6 +239,7 @@
     }
 
     .link-card {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -247,6 +247,7 @@
       border-radius: 16px;
       background: var(--panel-strong);
       border: 1px solid var(--border);
+      cursor: pointer;
     }
 
     .link-card[draggable="true"],
@@ -255,11 +256,64 @@
       cursor: grab;
     }
 
-    .link-card.drag-armed,
     .section-card.drag-armed,
     .todo-item.drag-armed {
-      cursor: grabbing;
+      cursor: grab;
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .link-card:focus-within .link-menu-trigger,
+    .link-card.show-link-menu-trigger .link-menu-trigger {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .link-menu-trigger {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 41, 51, 0.14);
+      background: rgba(255, 255, 255, 0.96);
+      color: var(--muted);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-3px);
+      transition: opacity 0.16s ease, transform 0.16s ease;
+    }
+
+    .link-card.show-link-menu-trigger .link-menu-trigger {
+      transition-delay: 0s;
+    }
+
+    .link-menu {
+      position: absolute;
+      top: 42px;
+      right: 8px;
+      min-width: 150px;
+      padding: 6px 0;
+      border-radius: 14px;
+      border: 1px solid rgba(31, 41, 51, 0.12);
+      background: rgba(255, 253, 248, 0.98);
+      box-shadow: 0 12px 30px rgba(31, 41, 51, 0.18);
+      z-index: 20;
+      isolation: isolate;
+    }
+
+    .link-menu button {
+      width: 100%;
+      padding: 12px 16px;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .link-menu button:hover {
+      background: rgba(31, 41, 51, 0.06);
     }
 
     .favicon-wrap {
@@ -284,16 +338,19 @@
       flex: 1;
     }
 
-    .link-card.is-editing {
-      padding-right: 10px;
-    }
-
     .link-title {
       display: block;
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .section-link-count {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.92rem;
+      margin-left: 4px;
     }
 
     .link-url {
@@ -619,6 +676,9 @@
     let tasksEditMode = false;
     let dragState = null;
     let pressTimer = null;
+    let hoverMenuTimer = null;
+    let activeLinkMenuId = null;
+    let suppressLinkClickUntil = 0;
 
     const todayLabel = document.getElementById("todayLabel");
     const sectionList = document.getElementById("sectionList");
@@ -823,11 +883,29 @@
       });
     }
 
+    function clearLinkMenuTrigger() {
+      document.querySelectorAll(".show-link-menu-trigger").forEach((element) => {
+        element.classList.remove("show-link-menu-trigger");
+      });
+    }
+
     function releasePressTimer() {
       if (pressTimer) {
         clearTimeout(pressTimer);
         pressTimer = null;
       }
+    }
+
+    function releaseHoverMenuTimer() {
+      if (hoverMenuTimer) {
+        clearTimeout(hoverMenuTimer);
+        hoverMenuTimer = null;
+      }
+    }
+
+    function closeActiveLinkMenu() {
+      activeLinkMenuId = null;
+      clearLinkMenuTrigger();
     }
 
     function armDragOnHold(element, enabled) {
@@ -840,14 +918,22 @@
         pressTimer = setTimeout(() => {
           clearDragArmed();
           element.classList.add("drag-armed");
+          element.setAttribute("draggable", "true");
         }, 220);
       });
 
-      ["pointerup", "pointerleave", "pointercancel"].forEach((eventName) => {
+      ["pointerup", "pointercancel"].forEach((eventName) => {
         element.addEventListener(eventName, () => {
           releasePressTimer();
+          if (!element.classList.contains("drag-active")) {
+            element.removeAttribute("draggable");
+          }
         });
       });
+    }
+
+    function markLinkDragComplete() {
+      suppressLinkClickUntil = Date.now() + 250;
     }
 
     function canStartDrag(element, enabled) {
@@ -908,6 +994,52 @@
       };
     }
 
+    function sortTodosForView(todos) {
+      return [...todos].sort((left, right) => {
+        if (left.completed !== right.completed) {
+          return Number(left.completed) - Number(right.completed);
+        }
+
+        if (left.completed && right.completed) {
+          return new Date(right.completedAt || 0) - new Date(left.completedAt || 0);
+        }
+
+        return 0;
+      });
+    }
+
+    function moveLinkBetweenSections(sourceSectionId, linkId, targetSectionId, targetLinkId = null, placeAfterTarget = false) {
+      const sourceSection = state.sections.find((item) => item.id === sourceSectionId);
+      const targetSection = state.sections.find((item) => item.id === targetSectionId);
+      if (!sourceSection || !targetSection) {
+        return false;
+      }
+
+      const sourceIndex = sourceSection.links.findIndex((item) => item.id === linkId);
+      if (sourceIndex < 0) {
+        return false;
+      }
+
+      const [movedLink] = sourceSection.links.splice(sourceIndex, 1);
+      if (!movedLink) {
+        return false;
+      }
+
+      if (!targetLinkId) {
+        targetSection.links.push(movedLink);
+        return true;
+      }
+
+      const insertionIndex = targetSection.links.findIndex((item) => item.id === targetLinkId);
+      if (insertionIndex < 0) {
+        targetSection.links.push(movedLink);
+        return true;
+      }
+
+      targetSection.links.splice(insertionIndex + (placeAfterTarget ? 1 : 0), 0, movedLink);
+      return true;
+    }
+
     function addDroppedLink(sectionId, dataTransfer) {
       const dropped = parseDroppedLink(dataTransfer);
       if (!dropped) {
@@ -961,23 +1093,11 @@
         }
 
         if (dragState?.type === "link") {
-          const sourceSection = state.sections.find((item) => item.id === dragState.sectionId);
-          const targetSection = state.sections.find((item) => item.id === section.id);
-          if (!sourceSection || !targetSection) {
-            dragState = null;
-            return;
+          if (moveLinkBetweenSections(dragState.sectionId, dragState.linkId, section.id)) {
+            saveState();
+            markLinkDragComplete();
+            renderSections();
           }
-
-          const sourceIndex = sourceSection.links.findIndex((item) => item.id === dragState.linkId);
-          const [movedLink] = sourceSection.links.splice(sourceIndex, 1);
-          if (!movedLink) {
-            dragState = null;
-            return;
-          }
-
-          targetSection.links.push(movedLink);
-          saveState();
-          renderSections();
           dragState = null;
           return;
         }
@@ -987,25 +1107,48 @@
     }
 
     function attachLinkDropHandlers(element, section, link) {
-      armDragOnHold(element, () => linksEditMode);
+      element.addEventListener("mouseenter", () => {
+        releaseHoverMenuTimer();
+        hoverMenuTimer = setTimeout(() => {
+          clearLinkMenuTrigger();
+          element.classList.add("show-link-menu-trigger");
+        }, 850);
+      });
+
+      element.addEventListener("mouseleave", () => {
+        releaseHoverMenuTimer();
+        if (activeLinkMenuId !== link.id) {
+          element.classList.remove("show-link-menu-trigger");
+        }
+      });
+
+      element.addEventListener("mousedown", () => {
+        if (activeLinkMenuId !== link.id) {
+          element.classList.remove("show-link-menu-trigger");
+        }
+      });
+
+      element.addEventListener("click", (event) => {
+        if (Date.now() < suppressLinkClickUntil) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      });
 
       element.addEventListener("dragstart", (event) => {
-        if (!canStartDrag(element, () => linksEditMode)) {
-          event.preventDefault();
-          return;
-        }
-
+        event.stopPropagation();
+        closeActiveLinkMenu();
         dragState = {
           type: "link",
           sectionId: section.id,
           linkId: link.id
         };
         event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", link.url);
       });
 
       element.addEventListener("dragend", () => {
         dragState = null;
-        clearDragArmed();
         clearDropTargets();
       });
 
@@ -1015,6 +1158,7 @@
         }
 
         event.preventDefault();
+        event.stopPropagation();
         element.classList.add("is-drop-target");
       });
 
@@ -1028,34 +1172,25 @@
         }
 
         event.preventDefault();
+        event.stopPropagation();
         element.classList.remove("is-drop-target");
 
         const sourceSection = state.sections.find((item) => item.id === dragState.sectionId);
         const targetSection = state.sections.find((item) => item.id === section.id);
-        if (!sourceSection || !targetSection) {
-          dragState = null;
-          return;
-        }
+        const sourceIndex = sourceSection?.links.findIndex((item) => item.id === dragState.linkId) ?? -1;
+        const targetIndex = targetSection?.links.findIndex((item) => item.id === link.id) ?? -1;
+        const placeAfterTarget =
+          sourceSection?.id === targetSection?.id &&
+          sourceIndex >= 0 &&
+          targetIndex >= 0 &&
+          sourceIndex < targetIndex;
 
-        const sourceIndex = sourceSection.links.findIndex((item) => item.id === dragState.linkId);
-        const targetIndex = targetSection.links.findIndex((item) => item.id === link.id);
-        const [movedLink] = sourceSection.links.splice(sourceIndex, 1);
-        if (!movedLink) {
-          dragState = null;
-          return;
+        if (moveLinkBetweenSections(dragState.sectionId, dragState.linkId, section.id, link.id, placeAfterTarget)) {
+          saveState();
+          markLinkDragComplete();
+          renderSections();
         }
-
-        if (sourceSection.id === targetSection.id) {
-          const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
-          targetSection.links.splice(adjustedTargetIndex, 0, movedLink);
-        } else {
-          targetSection.links.splice(targetIndex, 0, movedLink);
-        }
-
-        saveState();
-        renderSections();
         dragState = null;
-        clearDragArmed();
       });
     }
 
@@ -1129,9 +1264,12 @@
         const card = document.createElement("section");
         card.className = "section-card";
         card.draggable = linksEditMode;
-        armDragOnHold(card, () => linksEditMode);
         card.addEventListener("dragstart", (event) => {
-          if (!canStartDrag(card, () => linksEditMode)) {
+          if (event.target !== card) {
+            return;
+          }
+
+          if (!linksEditMode) {
             event.preventDefault();
             return;
           }
@@ -1144,7 +1282,6 @@
         });
         card.addEventListener("dragend", () => {
           dragState = null;
-          clearDragArmed();
           clearDropTargets();
         });
         attachSectionDropHandlers(card, section);
@@ -1157,8 +1294,13 @@
 
         const title = document.createElement("h3");
         title.className = "section-title";
-        title.textContent = `${section.name} (${section.links.length})`;
+        title.textContent = section.name;
 
+        const count = document.createElement("span");
+        count.className = "section-link-count";
+        count.textContent = `(${section.links.length})`;
+
+        title.append(count);
         titleBlock.append(title);
 
         const actions = document.createElement("div");
@@ -1199,11 +1341,11 @@
 
           section.links.forEach((link) => {
             const anchor = document.createElement("a");
-            anchor.className = "link-card" + (linksEditMode ? " is-editing" : "");
+            anchor.className = "link-card" + (activeLinkMenuId === link.id ? " show-link-menu-trigger" : "");
             anchor.href = link.url;
             anchor.target = "_blank";
             anchor.rel = "noreferrer";
-            anchor.draggable = linksEditMode;
+            anchor.draggable = true;
             attachLinkDropHandlers(anchor, section, link);
 
             const faviconWrap = document.createElement("div");
@@ -1230,35 +1372,62 @@
 
             meta.append(linkTitle, linkUrl);
 
-            const actionRow = document.createElement("div");
-            actionRow.className = "card-actions" + (linksEditMode ? "" : " hidden");
-
-            const editLinkButton = document.createElement("button");
-            editLinkButton.className = "icon-button";
-            editLinkButton.type = "button";
-            editLinkButton.textContent = "E";
-            editLinkButton.title = "Edit link";
-            editLinkButton.addEventListener("click", (event) => {
+            const menuTrigger = document.createElement("button");
+            menuTrigger.className = "link-menu-trigger";
+            menuTrigger.type = "button";
+            menuTrigger.textContent = "...";
+            menuTrigger.title = "Link actions";
+            menuTrigger.addEventListener("click", (event) => {
               event.preventDefault();
-              openLinkDialog(section.id, link);
-            });
-
-            const deleteLinkButton = document.createElement("button");
-            deleteLinkButton.className = "icon-button";
-            deleteLinkButton.type = "button";
-            deleteLinkButton.textContent = "D";
-            deleteLinkButton.title = "Delete link";
-            deleteLinkButton.addEventListener("click", (event) => {
-              event.preventDefault();
-              if (confirm(`Delete "${link.title}"?`)) {
-                section.links = section.links.filter((item) => item.id !== link.id);
-                saveState();
-                render();
+              event.stopPropagation();
+              if (activeLinkMenuId === link.id) {
+                activeLinkMenuId = null;
+                anchor.classList.remove("show-link-menu-trigger");
+              } else {
+                activeLinkMenuId = link.id;
+                clearLinkMenuTrigger();
+                anchor.classList.add("show-link-menu-trigger");
               }
+              renderSections();
             });
 
-            actionRow.append(editLinkButton, deleteLinkButton);
-            anchor.append(faviconWrap, meta, actionRow);
+            anchor.append(faviconWrap, meta, menuTrigger);
+
+            if (activeLinkMenuId === link.id) {
+              const menu = document.createElement("div");
+              menu.className = "link-menu";
+
+              const editLinkButton = document.createElement("button");
+              editLinkButton.type = "button";
+              editLinkButton.textContent = "Edit shortcut";
+              editLinkButton.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                closeActiveLinkMenu();
+                renderSections();
+                openLinkDialog(section.id, link);
+              });
+
+              const deleteLinkButton = document.createElement("button");
+              deleteLinkButton.type = "button";
+              deleteLinkButton.textContent = "Remove";
+              deleteLinkButton.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                closeActiveLinkMenu();
+                if (confirm(`Delete "${link.title}"?`)) {
+                  section.links = section.links.filter((item) => item.id !== link.id);
+                  saveState();
+                  render();
+                } else {
+                  renderSections();
+                }
+              });
+
+              menu.append(editLinkButton, deleteLinkButton);
+              anchor.append(menu);
+            }
+
             grid.append(anchor);
           });
 
@@ -1282,8 +1451,7 @@
         return;
       }
 
-      const todosForView = [...state.todos]
-        .sort((left, right) => Number(left.completed) - Number(right.completed))
+      const todosForView = sortTodosForView(state.todos)
         .filter((todo) => tasksEditMode || !todo.completed);
 
       todosForView
@@ -1487,6 +1655,13 @@
         const dialog = document.getElementById(button.getAttribute("data-close-dialog"));
         closeDialog(dialog);
       });
+    });
+
+    document.addEventListener("click", (event) => {
+      if (activeLinkMenuId && !event.target.closest(".link-card")) {
+        closeActiveLinkMenu();
+        renderSections();
+      }
     });
 
     document.getElementById("closeSectionDialog").addEventListener("click", () => closeDialog(sectionDialog));
