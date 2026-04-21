@@ -1,6 +1,6 @@
-# Start Page
+# Launchboard
 
-A lightweight offline start page for quick access to work links and personal task tracking.
+Launchboard is a lightweight offline start page for quick access to work links and personal task tracking.
 
 ## Why It Exists
 
